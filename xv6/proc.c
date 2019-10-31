@@ -529,5 +529,30 @@ procdump(void)
 }
 
 int dump_physmem(int *frames, int *pids, int numframes){
+  // check params to return -1
+
+  int reset;
+
+  for(int i = 0; i < numframes; i++){
+    reset = 0;
+
+    // what determines if a frame/pid should be set to -1??
+    if(frames[i] < 0 || pids[i] < 0){
+      if(pids[i] != -2){
+        reset = 1;
+      }
+    }
+
+    if(reset != 1){
+      if (pids[i] == -2){
+        cprintf("frames[%d] = %d; pids[%d] = %d (UNKNOWN)\n", i, frames[i], i, pids[i]);
+      } else {
+        cprintf("frames[%d] = %d; pids[%d] = %d\n", i, frames[i], i, pids[i]);
+      }
+    } else {
+      frames[i] = -1;
+      pids[i] = -1;
+    }
+  }
   return 0;
 }
