@@ -8,9 +8,8 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "spinlock.h"
-
-static int frames[4096];
-static int frame = 0;
+//#include "kalloc.h"
+//#include "proc.h"
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
@@ -21,6 +20,17 @@ struct run
   struct run *next;
 };
 
+int framesList[16384];
+//int pidsList[16384];
+int frame;
+int* getframesList(void)
+{
+  return framesList;
+}
+int
+getframe(void) {
+  return frame;
+}
 struct
 {
   struct spinlock lock;
@@ -58,8 +68,8 @@ void freerange(void *vstart, void *vend)
   int i = 0;
   for (; p + PGSIZE <= (char *)vend; p += PGSIZE)
   {
-    if((i+1)%2 == 0)
-      kfree(p);
+    if ((i + 1) % 2 == 0)
+      kfree2(p);
     i++;
   }
 }
@@ -73,6 +83,8 @@ void kfree(char *v)
 
   if ((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
+
+  // cprintf("freeing: %x\n", V2P(v)>>12);
 
   // Fill with junk to catch dangling refs.
   memset(v, 1, PGSIZE);
@@ -111,12 +123,6 @@ void kfree2(char *v)
 char *
 kalloc(void)
 {
-  // Translating the address allocated in kalloc to a page number:
-  //      1. convert the address from a VA in the kernal's address space to a PA
-  //      2. shift and mask off the page offset from a 32-bit address to obtain the frame number
-
-  // Modify the allocation routine to ensure that there is a free page between pages
-
   struct run *r;
   if (kmem.use_lock)
   {
@@ -127,11 +133,42 @@ kalloc(void)
   // we need to get the PA to retrieve the frame number
   if (r)
   {
-    int va = (int)&r;
-    //cprintf("r(VA): %x\tr(PA): %x\tPA complete: %x\n",  va & 0xFFF, V2P(r)>>12, V2P(r)+(va & 0xFFF));
-
+     int frameNumber = V2P(r) >> 12;
+    if(frameNumber > 1023){
+      //pidList[frame] = myproc()->pid;
+      framesList[frame++] = frameNumber;
+    }   
     kmem.freelist = r->next;
-    //frames[frame] = V2P(r)>>12;
+    
+  }
+  if (kmem.use_lock)
+  {
+    release(&kmem.lock);
+  }
+  return (char *)r;
+}
+
+// called by the excluded methods (inituvm, setupkvm, walkpgdir). We need to
+// "mark these pages as belonging to an unknown process". (-2)
+char *
+kalloc2(void)
+{
+  struct run *r;
+  if (kmem.use_lock)
+  {
+    acquire(&kmem.lock);
+  }
+  r = kmem.freelist;
+
+  // we need to get the PA to retrieve the frame number
+  if (r)
+  {
+    int frameNumber = V2P(r) >> 12; 
+    if(frameNumber > 1023){
+      //pidList[frame] = myproc()->pid
+      framesList[frame++] = frameNumber;
+    }    
+    kmem.freelist = r->next;
   }
   if (kmem.use_lock)
   {
