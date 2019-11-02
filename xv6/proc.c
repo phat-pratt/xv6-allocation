@@ -93,7 +93,8 @@ found:
   release(&ptable.lock);
 
   // Allocate kernel stack. Need to pass the pid to kalloc?
-  if ((p->kstack = kalloc()) == 0)
+
+  if ((p->kstack = kalloc(p->pid)) == 0)
   {
     p->state = UNUSED;
     return 0;
@@ -544,9 +545,10 @@ int dump_physmem(int *frames, int *pids, int numframes)
     return -1;
   }
   int* framesList = getframesList();
+  int* pidList = getpidList();
   for (int i = 0; i < numframes; i++) {
     frames[i] = framesList[i];
-    pids[i] = -2;
+    pids[i] = pidList[i];
   }
   return 0;
 }

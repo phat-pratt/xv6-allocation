@@ -29,7 +29,7 @@ pipealloc(struct file **f0, struct file **f1)
   if((*f0 = filealloc()) == 0 || (*f1 = filealloc()) == 0)
     goto bad;
   // need to pass the pid to kalloc?
-  if((p = (struct pipe*)kalloc()) == 0)
+  if((p = (struct pipe*)kalloc(0)) == 0)
     goto bad;
   p->readopen = 1;
   p->writeopen = 1;

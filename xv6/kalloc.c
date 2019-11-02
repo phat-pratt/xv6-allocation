@@ -8,8 +8,6 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "spinlock.h"
-//#include "kalloc.h"
-//#include "proc.h"
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
@@ -21,7 +19,7 @@ struct run
 };
 
 int framesList[16384];
-//int pidsList[16384];
+int pidList[16384];
 int frame;
 int* getframesList(void)
 {
@@ -30,6 +28,9 @@ int* getframesList(void)
 int
 getframe(void) {
   return frame;
+}
+int* getpidList(void) {
+  return pidList;
 }
 struct
 {
@@ -121,7 +122,7 @@ void kfree2(char *v)
 // From spec - kalloc manages freelist and allocates physical memory
 // returns first page on the freelist
 char *
-kalloc(void)
+kalloc(int pid)
 {
   struct run *r;
   if (kmem.use_lock)
@@ -135,7 +136,7 @@ kalloc(void)
   {
      int frameNumber = V2P(r) >> 12;
     if(frameNumber > 1023){
-      //pidList[frame] = myproc()->pid;
+      pidList[frame] = pid;
       framesList[frame++] = frameNumber;
     }   
     kmem.freelist = r->next;
@@ -165,7 +166,7 @@ kalloc2(void)
   {
     int frameNumber = V2P(r) >> 12; 
     if(frameNumber > 1023){
-      //pidList[frame] = myproc()->pid
+      pidList[frame] = -2; // -2 for unknown process.
       framesList[frame++] = frameNumber;
     }    
     kmem.freelist = r->next;

@@ -234,10 +234,10 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   // #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
   a = PGROUNDUP(oldsz);
-
+  int pid = myproc()->pid;
   for(; a < newsz; a += PGSIZE){
     // manipulate this call to kalloc. Need to pass the pid?
-    mem = kalloc();
+    mem = kalloc(pid);
     //check if there is an error
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
@@ -338,7 +338,9 @@ copyuvm(pde_t *pgdir, uint sz)
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     // manipulate this call to kalloc. Need to pass the pid?
-    if((mem = kalloc()) == 0)
+    int pid = myproc()->pid;
+
+    if((mem = kalloc(pid)) == 0)
       goto bad;
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
