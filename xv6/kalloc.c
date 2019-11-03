@@ -12,11 +12,32 @@
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
-
+int lastPid;
 struct run
 {
   struct run *next;
+  int pid;
+  struct run *prev;
 };
+struct
+{
+  struct spinlock lock;
+  int use_lock;
+  struct run *freelist; //maintains free list
+  //add to track add. which page was alloacted by which procs
+} kmem;
+
+struct af
+{
+  int addr;
+  int pid;
+  struct af *next;
+  struct af *prev;
+};
+struct 
+{
+  struct af *aFrames;
+} allocFrames;
 
 int framesList[16384];
 int pidList[16384];
@@ -32,13 +53,7 @@ getframe(void) {
 int* getpidList(void) {
   return pidList;
 }
-struct
-{
-  struct spinlock lock;
-  int use_lock;
-  struct run *freelist; //maintains free list
-  //add to track add. which page was alloacted by which procs
-} kmem;
+
 
 // Initialization happens in two phases.
 // 1. main() calls kinit1() while still using entrypgdir to place just
@@ -66,12 +81,10 @@ void freerange(void *vstart, void *vend)
   char *p;
   p = (char *)PGROUNDUP((uint)vstart);
   //we only want to allocate every other frame...
-  int i = 0;
   for (; p + PGSIZE <= (char *)vend; p += PGSIZE)
   {
-    if ((i + 1) % 2 == 0)
-      kfree2(p);
-    i++;
+    kfree2(p);
+    
   }
 }
 // Free the page of physical memory pointed at by v,
@@ -93,8 +106,45 @@ void kfree(char *v)
   if (kmem.use_lock)
     acquire(&kmem.lock);
   r = (struct run *)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  r->pid = -1;
+  //we need to ensure that the freelist is sorted when a freed frame is added. 
+  //iterate through the freelist to find the frame that
+  
+  // if the freelist is empty add it to head.
+  if(r > kmem.freelist) {
+    
+  } else {
+    // if the list is not empty, find the first element smaller than 
+
+  }
+  struct run *curr = kmem.freelist;
+  struct run *prev = kmem.freelist;
+  while(r<curr) {
+    prev = curr;
+    curr = curr->next;
+  }
+  curr->prev = r;
+  r->next = curr;
+  if(prev == kmem.freelist){
+    kmem.freelist = r;
+  } else{
+    prev->next = r;
+    r->prev = prev;
+  }
+  //find the frame being freed in the allocated list
+  for(int i = 0; i<frame; i++){
+    if(framesList[i] == V2P(r)>>12){
+      //if the process is found, remove it and shift list
+      for(int j = i; j<frame-1;j++) {
+        framesList[j] = framesList[j+1];
+      }
+      frame--;
+      break;
+    }
+  }
+  // r->next = kmem.freelist;
+  // kmem.freelist = r;
+  
   if (kmem.use_lock)
     release(&kmem.lock);
 }
@@ -112,6 +162,7 @@ void kfree2(char *v)
     acquire(&kmem.lock);
   r = (struct run *)v;
   r->next = kmem.freelist;
+  r->pid = -1;
   kmem.freelist = r;
   if (kmem.use_lock)
     release(&kmem.lock);
@@ -125,6 +176,8 @@ char *
 kalloc(int pid)
 {
   struct run *r;
+  struct af *a;
+
   if (kmem.use_lock)
   {
     acquire(&kmem.lock);
@@ -134,11 +187,20 @@ kalloc(int pid)
   // we need to get the PA to retrieve the frame number
   if (r)
   {
-     int frameNumber = V2P(r) >> 12;
-    if(frameNumber > 1023){
+    
+    r->pid = pid;
+    // if the last process allocated is the same as the current, then create a free frame
+    int frameNumber = V2P(r) >> 12;
+    if(frameNumber > 1023) {
       pidList[frame] = pid;
       framesList[frame++] = frameNumber;
-    }   
+      a = (struct af *)r;
+      //we can get the frameNumber of a with V2P>>12
+      a->next = allocFrames.aFrames;
+      a->pid = pid;
+      allocFrames.aFrames = a;
+      
+    }  
     kmem.freelist = r->next;
     
   }
@@ -155,6 +217,8 @@ char *
 kalloc2(void)
 {
   struct run *r;
+  struct af *a;
+
   if (kmem.use_lock)
   {
     acquire(&kmem.lock);
@@ -165,11 +229,18 @@ kalloc2(void)
   if (r)
   {
     int frameNumber = V2P(r) >> 12; 
-    if(frameNumber > 1023){
+    if(frameNumber > 1023) {
       pidList[frame] = -2; // -2 for unknown process.
       framesList[frame++] = frameNumber;
+       a = (struct af *)r;
+      //we can get the frameNumber of a with V2P>>12
+      a->next = allocFrames.aFrames;
+      a->pid = -2;
+      allocFrames.aFrames = a;
+      
     }    
     kmem.freelist = r->next;
+   
   }
   if (kmem.use_lock)
   {

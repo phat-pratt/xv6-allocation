@@ -8,6 +8,7 @@
         "proc.h": "c",
         "spinlock.h": "c",
         "memlayout.h": "c",
-        "x86.h": "c"
+        "x86.h": "c",
+        "memory": "c"
     }
 }
