@@ -89,14 +89,10 @@ void kfree(char *v)
   r->pid = -1;
   //we need to ensure that the freelist is sorted when a freed frame is added. 
   //iterate through the freelist to find the frame that
-  
-  // if the freelist is empty add it to head.
-  if(r > kmem.freelist) {
-    
-  } else {
-    // if the list is not empty, find the first element smaller than 
-
-  }
+  int i = V2P(r)>>12;
+  if(i == 0xdffb){
+      cprintf("");
+    }
   struct run *curr = kmem.freelist;
   struct run *prev = kmem.freelist;
   while(r<curr) {
@@ -105,14 +101,14 @@ void kfree(char *v)
   }
   curr->prev = r;
   r->next = curr;
-  if(prev == kmem.freelist){
+  if(prev == curr){
     kmem.freelist = r;
   } else{
     prev->next = r;
     r->prev = prev;
   }
   //find the frame being freed in the allocated list
-  int i = V2P(r)>>12;
+  
   framesList[i] = -1;
   // r->next = kmem.freelist;
   // kmem.freelist = r;
@@ -136,6 +132,9 @@ void kfree2(char *v)
   r->next = kmem.freelist;
   r->pid = -1;
   int i = V2P(r)>>12;
+  if(i == 0xdffb){
+      cprintf("");
+    }
   framesList[i] = -1;
   kmem.freelist = r;
   if (kmem.use_lock)
@@ -158,7 +157,9 @@ kalloc(int pid)
   r = kmem.freelist;
 
   // we need to get the PA to retrieve the frame number
-  
+  if(pid == 3){
+    cprintf("");
+  }
   int frameNumber;
   while (r) {
   
@@ -186,6 +187,10 @@ kalloc(int pid)
     //if the previous frame if free and the next frame is free -> Allocate
     if((framesList[frameNumber - 1] == -1)
     && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] ==  pid)) {
       break;
     }
     r = r->next;
@@ -255,6 +260,10 @@ kalloc2(void)
     //if the previous frame if free and the next frame is free -> Allocate
     if((framesList[frameNumber - 1] == -1)
     && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] ==  -2)) {
       break;
     }
     r = r->next;
