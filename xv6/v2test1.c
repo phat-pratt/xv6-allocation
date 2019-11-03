@@ -13,7 +13,7 @@ main(int argc, char *argv[])
     if(flag == 0)
     {
         for (int i = 0; i < numframes; i++)
-        //   if(*(pids+i) > 0)
+          if(*(pids+i) > 0)
             printf(0,"Frames: %x PIDs: %d\n", *(frames+i), *(pids+i));
     }
     else// if(flag == -1)

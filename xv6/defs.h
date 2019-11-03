@@ -71,8 +71,6 @@ void            kfree2(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
 int*            getframesList(void);
-int             getframe(void);
-int*            getpidList(void);
 
 
 // kbd.c

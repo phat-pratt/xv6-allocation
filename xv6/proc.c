@@ -545,10 +545,12 @@ int dump_physmem(int *frames, int *pids, int numframes)
     return -1;
   }
   int* framesList = getframesList();
-  int* pidList = getpidList();
-  for (int i = 0; i < numframes; i++) {
-    frames[i] = framesList[i];
-    pids[i] = pidList[i];
+  int j = 0;
+  for(int i = 65535; i >=0; i--) {
+    if(framesList[i] != 0 && j < numframes){
+      frames[j] = i;
+      pids[j++] = framesList[i];
+    }
   }
   return 0;
 }
