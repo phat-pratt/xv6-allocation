@@ -181,6 +181,9 @@ UPROGS=\
 	_sh\
 	_stressfs\
 	_usertests\
+	_v1atest1\
+	_v1btest1\
+	_v2test1\
 	_wc\
 	_zombie\
 

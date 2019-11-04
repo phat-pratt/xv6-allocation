@@ -64,10 +64,14 @@ extern uchar    ioapicid;
 void            ioapicinit(void);
 
 // kalloc.c
-char*           kalloc(void);
+char*           kalloc(int);
+char*           kalloc2(void);
 void            kfree(char*);
+void            kfree2(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
+int*            getframesList(void);
+
 
 // kbd.c
 void            kbdintr(void);
@@ -119,6 +123,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             dump_physmem(int*, int*, int);
+
 
 // swtch.S
 void            swtch(struct context**, struct context*);

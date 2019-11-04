@@ -42,7 +42,7 @@ forktest(void)
   int n, pid;
 
   printf(1, "fork test\n");
-  2c:	68 24 03 00 00       	push   $0x324
+  2c:	68 2c 03 00 00       	push   $0x32c
   31:	6a 01                	push   $0x1
   33:	e8 c8 ff ff ff       	call   0 <printf>
 
@@ -87,14 +87,14 @@ forktest(void)
     printf(1, "fork claimed to work N times!\n", N);
   79:	83 ec 04             	sub    $0x4,%esp
   7c:	68 e8 03 00 00       	push   $0x3e8
-  81:	68 64 03 00 00       	push   $0x364
+  81:	68 6c 03 00 00       	push   $0x36c
   86:	6a 01                	push   $0x1
   88:	e8 73 ff ff ff       	call   0 <printf>
     exit();
   8d:	e8 f1 01 00 00       	call   283 <exit>
       printf(1, "wait stopped early\n");
   92:	83 ec 08             	sub    $0x8,%esp
-  95:	68 2f 03 00 00       	push   $0x32f
+  95:	68 37 03 00 00       	push   $0x337
   9a:	6a 01                	push   $0x1
   9c:	e8 5f ff ff ff       	call   0 <printf>
       exit();
@@ -112,7 +112,7 @@ forktest(void)
 
   printf(1, "fork test OK\n");
   b0:	83 ec 08             	sub    $0x8,%esp
-  b3:	68 56 03 00 00       	push   $0x356
+  b3:	68 5e 03 00 00       	push   $0x35e
   b8:	6a 01                	push   $0x1
   ba:	e8 41 ff ff ff       	call   0 <printf>
 }
@@ -122,7 +122,7 @@ forktest(void)
   c6:	c3                   	ret    
     printf(1, "wait got too many\n");
   c7:	83 ec 08             	sub    $0x8,%esp
-  ca:	68 43 03 00 00       	push   $0x343
+  ca:	68 4b 03 00 00       	push   $0x34b
   cf:	6a 01                	push   $0x1
   d1:	e8 2a ff ff ff       	call   0 <printf>
     exit();
@@ -583,3 +583,8 @@ SYSCALL(uptime)
  31b:	b8 0e 00 00 00       	mov    $0xe,%eax
  320:	cd 40                	int    $0x40
  322:	c3                   	ret    
+
+00000323 <dump_physmem>:
+ 323:	b8 16 00 00 00       	mov    $0x16,%eax
+ 328:	cd 40                	int    $0x40
+ 32a:	c3                   	ret    

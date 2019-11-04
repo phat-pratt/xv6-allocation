@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "algorithm": "c",
+        "frames.h": "c",
+        "param.h": "c",
+        "defs.h": "c",
+        "mmu.h": "c",
+        "proc.h": "c",
+        "spinlock.h": "c",
+        "memlayout.h": "c",
+        "x86.h": "c",
+        "memory": "c"
+    }
+}

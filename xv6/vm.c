@@ -42,7 +42,8 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
   if(*pde & PTE_P){
     pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
   } else {
-    if(!alloc || (pgtab = (pte_t*)kalloc()) == 0)
+    //ignore this call to kalloc. Mark as UNKNOWN
+    if(!alloc || (pgtab = (pte_t*)kalloc2()) == 0)
       return 0;
     // Make sure all those PTE_P bits are zero.
     memset(pgtab, 0, PGSIZE);
@@ -62,7 +63,7 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
 {
   char *a, *last;
   pte_t *pte;
-
+  
   a = (char*)PGROUNDDOWN((uint)va);
   last = (char*)PGROUNDDOWN(((uint)va) + size - 1);
   for(;;){
@@ -120,8 +121,8 @@ setupkvm(void)
 {
   pde_t *pgdir;
   struct kmap *k;
-
-  if((pgdir = (pde_t*)kalloc()) == 0)
+  //ignore this call to kalloc. Mark as UNKNOWN
+  if((pgdir = (pde_t*)kalloc2()) == 0)
     return 0;
   memset(pgdir, 0, PGSIZE);
   if (P2V(PHYSTOP) > (void*)DEVSPACE)
@@ -186,7 +187,8 @@ inituvm(pde_t *pgdir, char *init, uint sz)
 
   if(sz >= PGSIZE)
     panic("inituvm: more than a page");
-  mem = kalloc();
+  // ignore this call to kalloc. Mark as UNKNOWN
+  mem = kalloc2();
   memset(mem, 0, PGSIZE);
   mappages(pgdir, 0, PGSIZE, V2P(mem), PTE_W|PTE_U);
   memmove(mem, init, sz);
@@ -224,19 +226,25 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   char *mem;
   uint a;
 
+  //#define KERNBASE 0x80000000         // First kernel virtual address
   if(newsz >= KERNBASE)
     return 0;
   if(newsz < oldsz)
     return oldsz;
 
+  // #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
   a = PGROUNDUP(oldsz);
+  int pid = myproc()->pid;
   for(; a < newsz; a += PGSIZE){
-    mem = kalloc();
+    // manipulate this call to kalloc. Need to pass the pid?
+    mem = kalloc(pid);
+    //check if there is an error
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
     }
+
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
@@ -329,7 +337,10 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
+    // manipulate this call to kalloc. Need to pass the pid?
+    int pid = myproc()->pid;
+
+    if((mem = kalloc(pid)) == 0)
       goto bad;
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
