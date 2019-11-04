@@ -12,7 +12,7 @@
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
-int lastPid;
+int kinitdone;
 struct run
 {
   struct run *next;
@@ -42,6 +42,7 @@ int* getframesList(void)
 // after installing a full page table that maps them on all cores.
 void kinit1(void *vstart, void *vend)
 {
+  kinitdone=0;
   initlock(&kmem.lock, "kmem");
   kmem.use_lock = 0;
   freerange(vstart, vend);
@@ -51,6 +52,8 @@ void kinit2(void *vstart, void *vend)
 {
   freerange(vstart, vend);
   kmem.use_lock = 1;
+  kinitdone =1;
+
 }
 
 //free list is created
@@ -90,9 +93,6 @@ void kfree(char *v)
   //we need to ensure that the freelist is sorted when a freed frame is added. 
   //iterate through the freelist to find the frame that
   int i = V2P(r)>>12;
-  if(i == 0xdffb){
-      cprintf("");
-    }
   struct run *curr = kmem.freelist;
   struct run *prev = kmem.freelist;
   while(r<curr) {
@@ -102,7 +102,10 @@ void kfree(char *v)
   curr->prev = r;
   r->next = curr;
   if(prev == curr){
+    r->prev = kmem.freelist;
+    kmem.freelist->prev=r;
     kmem.freelist = r;
+    
   } else{
     prev->next = r;
     r->prev = prev;
@@ -130,11 +133,10 @@ void kfree2(char *v)
     acquire(&kmem.lock);
   r = (struct run *)v;
   r->next = kmem.freelist;
+  kmem.freelist->prev = r;
+  r->prev = kmem.freelist;
   r->pid = -1;
   int i = V2P(r)>>12;
-  if(i == 0xdffb){
-      cprintf("");
-    }
   framesList[i] = -1;
   kmem.freelist = r;
   if (kmem.use_lock)
@@ -149,24 +151,16 @@ char *
 kalloc(int pid)
 {
   struct run *r;
-
   if (kmem.use_lock)
   {
     acquire(&kmem.lock);
   }
   r = kmem.freelist;
-
   // we need to get the PA to retrieve the frame number
-  if(pid == 3){
-    cprintf("");
-  }
+  int position = 0;
   int frameNumber;
   while (r) {
-  
     frameNumber = V2P(r) >> 12;
-    if(frameNumber == 0xdffb){
-      cprintf("");
-    }
     r->pid = pid;
     if(framesList[frameNumber - 1] == 0){
       framesList[frameNumber - 1] = -1;
@@ -175,8 +169,16 @@ kalloc(int pid)
       framesList[frameNumber + 1] = -1;
     }
     //if the previous addr is allocated to the same pid and the next is not -> Allocate
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
     if((framesList[frameNumber - 1] == pid)
     && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] ==  pid)) {
       break;
     }
     // if the previous and next proc is allocated to the same pid -> Allocate.
@@ -184,39 +186,45 @@ kalloc(int pid)
     && (framesList[frameNumber + 1] ==  pid)) {
       break;
     }
-    //if the previous frame if free and the next frame is free -> Allocate
-    if((framesList[frameNumber - 1] == -1)
-    && (framesList[frameNumber + 1] ==  -1)) {
+    if((framesList[frameNumber - 1] == pid)
+    && (framesList[frameNumber + 1] ==  -2)) {
       break;
     }
-    if((framesList[frameNumber - 1] == -1)
+    //if the previous frame if free and the next frame is free -> Allocate
+    
+    if((framesList[frameNumber - 1] == -2)
     && (framesList[frameNumber + 1] ==  pid)) {
       break;
     }
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] ==  -2)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -2)
+    && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
+    position++;
     r = r->next;
   }
-
   if (r){
-    
     frameNumber = V2P(r) >> 12;
-
-    // need to check if the frame r meets the security requirement.
-    // if the previous frame is allocated and equal to the pid.
-    if(framesList[frameNumber - 1] == pid) {
-      // if the next frame is not allocated. 
-      if(framesList[frameNumber + 1] ==  -1) {
-        //allocate the frame:
-          kmem.freelist = r->next;
-      }
-      
-    }
 
     // if the last process allocated is the same as the current, then create a free frame
     if(frameNumber > 1023) {
       framesList[frameNumber] = pid;
-    }  
-    kmem.freelist = r->next;
+    }    
     
+    if(r == kmem.freelist){
+      kmem.freelist = r->next;
+    } else{
+      struct run *temp = kmem.freelist;
+      for(int i = 0; i<position-1; i++)
+        temp = temp->next;
+
+      struct run *next = temp->next->next;
+      temp->next = next;
+    }
   }
   if (kmem.use_lock)
   {
@@ -239,12 +247,10 @@ kalloc2(void)
   r = kmem.freelist;
  
   int frameNumber;
+  int position = 0;
   while (r) {
   
     frameNumber = V2P(r) >> 12;
-    if(frameNumber == 0xdffb){
-      cprintf("");
-    }
     r->pid = -2;
 
     //if the previous addr is allocated to the same pid and the next is not -> Allocate
@@ -266,6 +272,27 @@ kalloc2(void)
     && (framesList[frameNumber + 1] ==  -2)) {
       break;
     }
+    if((framesList[frameNumber - 1] != -1)
+    && (framesList[frameNumber + 1] ==  -2)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -2)
+    && (framesList[frameNumber + 1] !=  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] != -1)
+    && (framesList[frameNumber + 1] !=  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] != -1)
+    && (framesList[frameNumber + 1] ==  -1)) {
+      break;
+    }
+    if((framesList[frameNumber - 1] == -1)
+    && (framesList[frameNumber + 1] !=  -1)) {
+      break;
+    }
+    position++;
     r = r->next;
   }
 
@@ -273,12 +300,20 @@ kalloc2(void)
   if (r)
   {
     frameNumber = V2P(r) >> 12; 
-
     if(frameNumber > 1023) {
       framesList[frameNumber] = -2;
     }    
-    kmem.freelist = r->next;
-   
+
+    if(r == kmem.freelist){
+      kmem.freelist = r->next;
+    } else{
+      struct run *temp = kmem.freelist;
+      for(int i = 0; i<position-1; i++)
+        temp = temp->next;
+
+      struct run *next = temp->next->next;
+      temp->next = next;
+    }  
   }
   if (kmem.use_lock)
   {
